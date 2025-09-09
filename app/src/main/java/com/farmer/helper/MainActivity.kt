@@ -259,6 +259,21 @@ fun ChatScreen(tts: TextToSpeech?) {
         }
     }
 
+    // ✅ New safe sendMessage function
+    fun sendMessage(message: String) {
+        if (message.isNotBlank()) {
+            val messageToSend = message.trim()
+            chatHistory.add("You: $messageToSend")
+            userMessage = "" // clear input AFTER capturing
+
+            coroutineScope.launch {
+                val response = GeminiHelper.getResponse(messageToSend)
+                chatHistory.add("AI: $response")
+                tts?.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Farmer Helper AI Chat", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
@@ -278,17 +293,7 @@ fun ChatScreen(tts: TextToSpeech?) {
                 modifier = Modifier.weight(1f)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = {
-                if (userMessage.isNotBlank()) {
-                    chatHistory.add("You: $userMessage")
-                    coroutineScope.launch {
-                        val response = GeminiHelper.getResponse(userMessage)
-                        chatHistory.add("AI: $response")
-                        tts?.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
-                    }
-                    userMessage = ""
-                }
-            }) {
+            Button(onClick = { sendMessage(userMessage) }) {
                 Text("Send")
             }
         }
@@ -309,4 +314,3 @@ fun ChatScreen(tts: TextToSpeech?) {
         }
     }
 }
-

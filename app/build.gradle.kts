@@ -59,9 +59,11 @@ dependencies {
     implementation("org.json:json:20230618")
     // Images
     implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("com.google.ai.client.generativeai:generativeai:0.2.0")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling:1.5.0")
+
 
 
 }

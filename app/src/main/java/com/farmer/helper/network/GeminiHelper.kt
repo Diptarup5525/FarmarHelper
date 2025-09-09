@@ -1,5 +1,6 @@
 package com.farmer.helper.network
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -10,60 +11,60 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object GeminiHelper {
-    private const val API_KEY = "AIzaSyDk22pCuUhHHQHvaunXX8XxJtkgdxPeNeM"
+    private const val API_KEY = "AIzaSyDk22pCuUhHHQHvaunXX8XxJtkgdxPeNeM" // replace with your actual key
 
     suspend fun getResponse(userMessage: String): String {
         return withContext(Dispatchers.IO) {
             try {
                 val client = OkHttpClient()
 
-                // Build proper prompt JSON
-                val messageContent = JSONObject().put("type", "text").put("text", userMessage)
-                val messagesArray = JSONArray().put(JSONObject().put("author", "user").put("content", JSONArray().put(messageContent)))
-                val prompt = JSONObject().put("messages", messagesArray)
+                // ✅ Build minimal valid JSON
+                val userContent = JSONObject()
+                    .put("parts", JSONArray().put(JSONObject().put("text", userMessage)))
 
                 val json = JSONObject()
-                    .put("model", "gemini-1.5-flash")
-                    .put("temperature", 0.7)
-                    .put("candidateCount", 1)
-                    .put("topP", 0.95)
-                    .put("prompt", prompt)
+                    .put("contents", JSONArray().put(userContent))
 
-                val body = json.toString().toRequestBody("application/json".toMediaType())
+                val requestBodyString = json.toString()
+
+                // 🔍 Log the request JSON
+                Log.d("GeminiHelper", "Request JSON: $requestBodyString")
+
+                val requestBody = requestBodyString
+                    .toRequestBody("application/json".toMediaType())
 
                 val request = Request.Builder()
                     .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$API_KEY")
-                    .post(body)
+                    .post(requestBody)
+                    .addHeader("Content-Type", "application/json")
                     .build()
 
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string()
 
                 if (!response.isSuccessful || responseBody.isNullOrEmpty()) {
+                    Log.e("GeminiHelper", "API call failed: ${response.code} - ${response.message}")
                     return@withContext "Error: ${response.code} ${response.message}"
                 }
 
+                // 🔍 Log the raw response
+                Log.d("GeminiHelper", "Response body: $responseBody")
+
                 val jsonResponse = JSONObject(responseBody)
-
-                // Handle API errors
-                if (jsonResponse.has("error")) {
-                    val errorMsg = jsonResponse.getJSONObject("error").optString("message", "Unknown error")
-                    return@withContext "Error: $errorMsg"
-                }
-
-                // Extract AI response
                 val candidates = jsonResponse.optJSONArray("candidates")
                 if (candidates != null && candidates.length() > 0) {
-                    val content = candidates.getJSONObject(0)
-                        .getJSONObject("content")
-                        .getJSONArray("parts")
-                        .getJSONObject(0)
-                        .optString("text", "")
-                    if (content.isNotBlank()) return@withContext content
+                    val firstCandidate = candidates.getJSONObject(0)
+                    val content = firstCandidate.optJSONObject("content")
+                    val parts = content?.optJSONArray("parts")
+                    if (parts != null && parts.length() > 0) {
+                        val text = parts.getJSONObject(0).optString("text", "")
+                        if (text.isNotBlank()) return@withContext text
+                    }
                 }
 
                 return@withContext "No response from Gemini."
             } catch (e: Exception) {
+                Log.e("GeminiHelper", "Exception in getResponse", e)
                 return@withContext "Error: ${e.message}"
             }
         }
