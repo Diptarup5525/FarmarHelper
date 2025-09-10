@@ -11,6 +11,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -19,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.farmer.helper.data.AppDatabase
+import com.farmer.helper.data.User
+import com.farmer.helper.data.UserDao
 import com.farmer.helper.network.RetrofitClient
 import com.farmer.helper.network.WeatherApiService
 import com.farmer.helper.network.WeatherResponse
@@ -28,22 +34,29 @@ import java.util.*
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
+    private lateinit var userDao: UserDao
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, this)
+
+        // ✅ init Room DB
+        val db = AppDatabase.getDatabase(this)
+        userDao = db.userDao()
 
         setContent {
             val navController = rememberNavController()
             NavHost(navController = navController, startDestination = "login") {
                 composable("login") {
                     LoginScreen(
+                        userDao = userDao,
                         onSignupClick = { navController.navigate("signup") },
-                        onLoginClick = { navController.navigate("home") }
+                        onLoginSuccess = { navController.navigate("home") }
                     )
                 }
                 composable("signup") {
                     SignupScreen(
+                        userDao = userDao,
                         onSignupComplete = { navController.navigate("home") }
                     )
                 }
@@ -68,15 +81,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 }
 
 @Composable
-fun LoginScreen(onSignupClick: () -> Unit, onLoginClick: () -> Unit) {
+fun LoginScreen(userDao: UserDao, onSignupClick: () -> Unit, onLoginSuccess: () -> Unit) {
     var mobile by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
         Text("Farmer Helper Login", style = MaterialTheme.typography.headlineSmall)
@@ -107,12 +119,13 @@ fun LoginScreen(onSignupClick: () -> Unit, onLoginClick: () -> Unit) {
 
         Button(
             onClick = {
-                when {
-                    mobile.length != 10 -> errorMessage = "Enter a valid 10-digit mobile number"
-                    password.isBlank() -> errorMessage = "Password cannot be empty"
-                    else -> {
+                scope.launch {
+                    val user = userDao.login(mobile, password)
+                    if (user != null) {
                         errorMessage = null
-                        onLoginClick()
+                        onLoginSuccess()
+                    } else {
+                        errorMessage = "Invalid mobile number or password"
                     }
                 }
             },
@@ -130,29 +143,23 @@ fun LoginScreen(onSignupClick: () -> Unit, onLoginClick: () -> Unit) {
 }
 
 @Composable
-fun SignupScreen(onSignupComplete: () -> Unit) {
+fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var mobile by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
         Text("Farmer Helper Signup", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(24.dp))
 
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Full Name") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
@@ -164,12 +171,7 @@ fun SignupScreen(onSignupComplete: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
-            value = address,
-            onValueChange = { address = it },
-            label = { Text("Address") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
@@ -204,8 +206,12 @@ fun SignupScreen(onSignupComplete: () -> Unit) {
                     password.length < 6 -> errorMessage = "Password must be at least 6 characters"
                     password != confirmPassword -> errorMessage = "Passwords do not match"
                     else -> {
-                        errorMessage = null
-                        onSignupComplete()
+                        scope.launch {
+                            val user = User(name = name, mobile = mobile, address = address, password = password)
+                            userDao.insertUser(user)
+                            errorMessage = null
+                            onSignupComplete()
+                        }
                     }
                 }
             },
