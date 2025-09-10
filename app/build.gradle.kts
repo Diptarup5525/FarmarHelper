@@ -56,20 +56,22 @@ dependencies {
 
     // JSON
     implementation("com.google.code.gson:gson:2.10.1")
-    implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("org.json:json:20230618")
+
     // Images
     implementation("io.coil-kt:coil-compose:2.4.0")
+
+    // Gemini AI
     implementation("com.google.ai.client.generativeai:generativeai:0.2.0")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling:1.5.0")
 
-    //Room
+    // Room
     implementation("androidx.room:room-runtime:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
 
-
-
+    // ✅ Markdown rendering (from JitPack)
+    implementation("com.github.jeziellago:compose-markdown:0.5.7")
 }

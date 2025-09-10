@@ -29,6 +29,7 @@ import com.farmer.helper.network.RetrofitClient
 import com.farmer.helper.network.WeatherApiService
 import com.farmer.helper.network.WeatherResponse
 import com.farmer.helper.network.GeminiHelper
+import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -91,7 +92,7 @@ fun LoginScreen(userDao: UserDao, onSignupClick: () -> Unit, onLoginSuccess: () 
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Farmer Helper Login", style = MaterialTheme.typography.headlineSmall)
+        Text("KrishiBandhu Login", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
@@ -303,7 +304,7 @@ fun SchemesScreen() {
 @Composable
 fun ChatScreen(tts: TextToSpeech?) {
     var userMessage by remember { mutableStateOf("") }
-    val chatHistory = remember { mutableStateListOf<String>() }
+    val chatHistory = remember { mutableStateListOf<Pair<String, Boolean>>() } // Pair(message, isUser)
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
@@ -313,10 +314,10 @@ fun ChatScreen(tts: TextToSpeech?) {
         if (result.resultCode == Activity.RESULT_OK) {
             val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spokenText.isNullOrBlank()) {
-                chatHistory.add("You: $spokenText")
+                chatHistory.add("You: $spokenText" to true)
                 coroutineScope.launch {
                     val response = GeminiHelper.getResponse(spokenText)
-                    chatHistory.add("AI: $response")
+                    chatHistory.add(response to false)
                     tts?.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
                 }
             }
@@ -326,34 +327,34 @@ fun ChatScreen(tts: TextToSpeech?) {
     fun sendMessage(message: String) {
         if (message.isNotBlank()) {
             val messageToSend = message.trim()
-            chatHistory.add("You: $messageToSend")
+            chatHistory.add("You: $messageToSend" to true)
             userMessage = ""
             coroutineScope.launch {
                 val response = GeminiHelper.getResponse(messageToSend)
-                chatHistory.add("AI: $response")
+                chatHistory.add(response to false)
                 tts?.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
             }
         }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Farmer Helper AI Chat", style = MaterialTheme.typography.headlineSmall)
+        Text("KrishiBandhu AI Chat", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
 
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             state = listState
         ) {
-            items(chatHistory) { message ->
-                Text(message)
+            items(chatHistory) { (message, isUser) ->
+                ChatBubble(message = message, isUser = isUser)
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
 
-        // Auto-scroll to the latest message
+        // Auto-scroll to bottom
         LaunchedEffect(chatHistory.size) {
             if (chatHistory.isNotEmpty()) {
-                listState.animateScrollToItem(chatHistory.size)
+                listState.animateScrollToItem(chatHistory.size - 1)
             }
         }
 
@@ -385,6 +386,36 @@ fun ChatScreen(tts: TextToSpeech?) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("🎤 Speak")
+        }
+    }
+}
+
+@Composable
+fun ChatBubble(message: String, isUser: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        Surface(
+            color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+            shape = MaterialTheme.shapes.medium,
+            tonalElevation = 4.dp,
+            modifier = Modifier.widthIn(max = 280.dp)
+        ) {
+            if (isUser) {
+                // User message → plain text
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.padding(12.dp)
+                )
+            } else {
+                // AI message → render Markdown
+                MarkdownText(
+                    markdown = message,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
         }
     }
 }
