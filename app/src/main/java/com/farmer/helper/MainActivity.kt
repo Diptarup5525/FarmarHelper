@@ -2,6 +2,7 @@ package com.farmer.helper
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
@@ -9,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
@@ -157,7 +160,7 @@ fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Farmer Helper Signup", style = MaterialTheme.typography.headlineSmall)
+        Text("KrishiBandhu Signup", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth())
@@ -294,17 +297,79 @@ fun MarketPricesScreen() {
 
 @Composable
 fun SchemesScreen() {
-    Column(modifier = Modifier.padding(16.dp)) {
+    val context = LocalContext.current
+    val schemes = listOf(
+        Triple(
+            "PM-Kisan Samman Nidhi",
+            "Direct income support of ₹6,000/year to eligible farmers.",
+            "https://pmkisan.gov.in/"
+        ),
+        Triple(
+            "Pradhan Mantri Fasal Bima Yojana (PMFBY)",
+            "Crop insurance scheme to protect farmers against losses due to natural calamities.",
+            "https://pmfby.gov.in/"
+        ),
+        Triple(
+            "Soil Health Card Scheme",
+            "Helps farmers improve soil fertility by providing soil health reports.",
+            "https://soilhealth.dac.gov.in/"
+        ),
+        Triple(
+            "National Agriculture Market (eNAM)",
+            "Online trading platform for agricultural commodities across India.",
+            "https://enam.gov.in/"
+        ),
+        Triple(
+            "Kisan Credit Card (KCC)",
+            "Provides short-term credit support to farmers for crop cultivation needs.",
+            "https://www.myscheme.gov.in/schemes/kcc"
+        )
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         Text("Government Schemes", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("PM-Kisan Yojana\nCrop Insurance\nSoil Health Card")
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(schemes) { (title, description, url) ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            context.startActivity(intent)
+                        },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = MaterialTheme.shapes.medium,
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(description, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Learn More",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
+        }
     }
 }
+
 
 @Composable
 fun ChatScreen(tts: TextToSpeech?) {
     var userMessage by remember { mutableStateOf("") }
-    val chatHistory = remember { mutableStateListOf<Pair<String, Boolean>>() } // Pair(message, isUser)
+    val chatHistory = remember { mutableStateListOf<Pair<String, Boolean>>() }
+    // Pair(message, isUser)
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
@@ -317,7 +382,7 @@ fun ChatScreen(tts: TextToSpeech?) {
                 chatHistory.add("You: $spokenText" to true)
                 coroutineScope.launch {
                     val response = GeminiHelper.getResponse(spokenText)
-                    chatHistory.add(response to false)
+                    chatHistory.add("AI: $response" to false)
                     tts?.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
                 }
             }
@@ -331,7 +396,7 @@ fun ChatScreen(tts: TextToSpeech?) {
             userMessage = ""
             coroutineScope.launch {
                 val response = GeminiHelper.getResponse(messageToSend)
-                chatHistory.add(response to false)
+                chatHistory.add("AI: $response" to false)
                 tts?.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
             }
         }
@@ -410,7 +475,7 @@ fun ChatBubble(message: String, isUser: Boolean) {
                     modifier = Modifier.padding(12.dp)
                 )
             } else {
-                // AI message → render Markdown
+                // AI message → render as markdown
                 MarkdownText(
                     markdown = message,
                     modifier = Modifier.padding(12.dp)
@@ -419,3 +484,4 @@ fun ChatBubble(message: String, isUser: Boolean) {
         }
     }
 }
+
