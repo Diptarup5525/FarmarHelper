@@ -69,8 +69,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
 @Composable
 fun LoginScreen(onSignupClick: () -> Unit, onLoginClick: () -> Unit) {
-    var email by remember { mutableStateOf("") }
+    var mobile by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -82,10 +83,10 @@ fun LoginScreen(onSignupClick: () -> Unit, onLoginClick: () -> Unit) {
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            value = mobile,
+            onValueChange = { mobile = it },
+            label = { Text("Mobile Number") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -97,9 +98,26 @@ fun LoginScreen(onSignupClick: () -> Unit, onLoginClick: () -> Unit) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = onLoginClick, modifier = Modifier.fillMaxWidth()) {
+        errorMessage?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Button(
+            onClick = {
+                when {
+                    mobile.length != 10 -> errorMessage = "Enter a valid 10-digit mobile number"
+                    password.isBlank() -> errorMessage = "Password cannot be empty"
+                    else -> {
+                        errorMessage = null
+                        onLoginClick()
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text("Login")
         }
 
@@ -113,9 +131,12 @@ fun LoginScreen(onSignupClick: () -> Unit, onLoginClick: () -> Unit) {
 
 @Composable
 fun SignupScreen(onSignupComplete: () -> Unit) {
-    var email by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var mobile by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -127,9 +148,26 @@ fun SignupScreen(onSignupComplete: () -> Unit) {
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Full Name") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = mobile,
+            onValueChange = { mobile = it },
+            label = { Text("Mobile Number") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = address,
+            onValueChange = { address = it },
+            label = { Text("Address") },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -138,6 +176,7 @@ fun SignupScreen(onSignupComplete: () -> Unit) {
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -146,11 +185,32 @@ fun SignupScreen(onSignupComplete: () -> Unit) {
             value = confirmPassword,
             onValueChange = { confirmPassword = it },
             label = { Text("Confirm Password") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = onSignupComplete, modifier = Modifier.fillMaxWidth()) {
+        errorMessage?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Button(
+            onClick = {
+                when {
+                    name.isBlank() -> errorMessage = "Name cannot be empty"
+                    mobile.length != 10 -> errorMessage = "Enter a valid 10-digit mobile number"
+                    address.isBlank() -> errorMessage = "Address cannot be empty"
+                    password.length < 6 -> errorMessage = "Password must be at least 6 characters"
+                    password != confirmPassword -> errorMessage = "Passwords do not match"
+                    else -> {
+                        errorMessage = null
+                        onSignupComplete()
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text("Signup")
         }
     }
@@ -259,13 +319,11 @@ fun ChatScreen(tts: TextToSpeech?) {
         }
     }
 
-    // ✅ New safe sendMessage function
     fun sendMessage(message: String) {
         if (message.isNotBlank()) {
             val messageToSend = message.trim()
             chatHistory.add("You: $messageToSend")
-            userMessage = "" // clear input AFTER capturing
-
+            userMessage = ""
             coroutineScope.launch {
                 val response = GeminiHelper.getResponse(messageToSend)
                 chatHistory.add("AI: $response")

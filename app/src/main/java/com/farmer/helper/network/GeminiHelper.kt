@@ -9,16 +9,24 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 object GeminiHelper {
     private const val API_KEY = "AIzaSyDk22pCuUhHHQHvaunXX8XxJtkgdxPeNeM" // replace with your actual key
 
+    // ✅ Reuse OkHttp client with longer timeouts
+    private val client: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS) // connect to server
+            .readTimeout(60, TimeUnit.SECONDS)    // wait for server response
+            .writeTimeout(60, TimeUnit.SECONDS)   // send request body
+            .build()
+    }
+
     suspend fun getResponse(userMessage: String): String {
         return withContext(Dispatchers.IO) {
             try {
-                val client = OkHttpClient()
-
-                // ✅ Build minimal valid JSON
+                // ✅ Build valid JSON body
                 val userContent = JSONObject()
                     .put("parts", JSONArray().put(JSONObject().put("text", userMessage)))
 
@@ -27,7 +35,7 @@ object GeminiHelper {
 
                 val requestBodyString = json.toString()
 
-                // 🔍 Log the request JSON
+                // 🔍 Log request JSON
                 Log.d("GeminiHelper", "Request JSON: $requestBodyString")
 
                 val requestBody = requestBodyString
@@ -47,7 +55,7 @@ object GeminiHelper {
                     return@withContext "Error: ${response.code} ${response.message}"
                 }
 
-                // 🔍 Log the raw response
+                // 🔍 Log raw response
                 Log.d("GeminiHelper", "Response body: $responseBody")
 
                 val jsonResponse = JSONObject(responseBody)
