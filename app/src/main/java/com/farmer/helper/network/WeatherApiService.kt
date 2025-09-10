@@ -8,19 +8,40 @@ interface WeatherApiService {
     suspend fun getWeather(
         @Query("q") city: String,
         @Query("appid") apiKey: String,
-        @Query("units") units: String = "metric"
+        @Query("units") units: String = "metric" // Celsius
     ): WeatherResponse
 }
 
+// Top-level response
 data class WeatherResponse(
     val main: Main,
-    val weather: List<Weather>
+    val weather: List<Weather>,
+    val wind: Wind,
+    val sys: Sys,
+    val name: String
 )
 
 data class Main(
-    val temp: Float
+    val temp: Float,
+    val feels_like: Float,
+    val temp_min: Float,
+    val temp_max: Float,
+    val humidity: Int
 )
 
 data class Weather(
-    val description: String
+    val main: String,
+    val description: String,
+    val icon: String
+)
+
+data class Wind(
+    val speed: Float,
+    val deg: Int
+)
+
+data class Sys(
+    val country: String,
+    val sunrise: Long,
+    val sunset: Long
 )

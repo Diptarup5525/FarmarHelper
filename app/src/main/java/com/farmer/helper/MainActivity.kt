@@ -33,6 +33,21 @@ import com.farmer.helper.network.WeatherApiService
 import com.farmer.helper.network.WeatherResponse
 import com.farmer.helper.network.GeminiHelper
 import dev.jeziellago.compose.markdowntext.MarkdownText
+import java.text.SimpleDateFormat
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+//import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.shape.RoundedCornerShape
+
+
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -251,6 +266,8 @@ fun HomeScreen(tts: TextToSpeech?) {
     }
 }
 
+
+
 @Composable
 fun WeatherScreen() {
     var weather by remember { mutableStateOf<WeatherResponse?>(null) }
@@ -261,23 +278,107 @@ fun WeatherScreen() {
         scope.launch {
             try {
                 val service = RetrofitClient.retrofit.create(WeatherApiService::class.java)
-                weather = service.getWeather(city = "Kolkata", apiKey = "9bf9ac380eddc10a828be70e348cb015")
+                weather = service.getWeather(
+                    city = "Kolkata",
+                    apiKey = "9bf9ac380eddc10a828be70e348cb015"
+                )
             } catch (e: Exception) {
                 errorMessage = e.message
             }
         }
     }
 
-    Column(Modifier.padding(16.dp)) {
-        Text("Weather Info", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(8.dp))
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Weather Information", style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(16.dp))
+
         when {
             weather != null -> {
-                Text("Temperature: ${weather!!.main.temp}°C")
-                Text("Condition: ${weather!!.weather.firstOrNull()?.description ?: "N/A"}")
+                val w = weather!!
+
+                // Weather icon
+                val iconUrl = "https://openweathermap.org/img/wn/${w.weather.firstOrNull()?.icon}@2x.png"
+                AsyncImage(
+                    model = iconUrl,
+                    contentDescription = "Weather Icon",
+                    modifier = Modifier.size(80.dp)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("${w.name}, ${w.sys.country}", style = MaterialTheme.typography.titleMedium)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Temperature card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Temperature", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Current: ${w.main.temp}°C")
+                        Text("Feels like: ${w.main.feels_like}°C")
+                        Text("Min: ${w.main.temp_min}°C | Max: ${w.main.temp_max}°C")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Humidity & Wind card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Humidity & Wind", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Humidity: ${w.main.humidity}%")
+                        Text("Wind: ${w.wind.speed} m/s, ${w.wind.deg}°")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Sunrise & Sunset card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Sunrise & Sunset", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                        val sunriseTime = sdf.format(Date(w.sys.sunrise * 1000))
+                        val sunsetTime = sdf.format(Date(w.sys.sunset * 1000))
+
+                        Text("Sunrise: $sunriseTime")
+                        Text("Sunset: $sunsetTime")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Weather description card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Condition", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("${w.weather.firstOrNull()?.main ?: "N/A"} - ${w.weather.firstOrNull()?.description ?: "N/A"}")
+                    }
+                }
+
             }
             errorMessage != null -> {
-                Text("Error: $errorMessage")
+                Text("Error: $errorMessage", color = MaterialTheme.colorScheme.error)
             }
             else -> {
                 CircularProgressIndicator()
@@ -285,6 +386,9 @@ fun WeatherScreen() {
         }
     }
 }
+
+
+
 
 @Composable
 fun MarketPricesScreen() {
