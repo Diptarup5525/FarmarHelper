@@ -10,10 +10,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, this)
 
-        // ✅ init Room DB
+        // Initialize Room database
         val db = AppDatabase.getDatabase(this)
         userDao = db.userDao()
 
@@ -257,10 +257,7 @@ fun WeatherScreen() {
         scope.launch {
             try {
                 val service = RetrofitClient.retrofit.create(WeatherApiService::class.java)
-                weather = service.getWeather(
-                    city = "Kolkata",
-                    apiKey = "9bf9ac380eddc10a828be70e348cb015"
-                )
+                weather = service.getWeather(city = "Kolkata", apiKey = "9bf9ac380eddc10a828be70e348cb015")
             } catch (e: Exception) {
                 errorMessage = e.message
             }
@@ -308,6 +305,7 @@ fun ChatScreen(tts: TextToSpeech?) {
     var userMessage by remember { mutableStateOf("") }
     val chatHistory = remember { mutableStateListOf<String>() }
     val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -342,12 +340,24 @@ fun ChatScreen(tts: TextToSpeech?) {
         Text("Farmer Helper AI Chat", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
 
-        Column(modifier = Modifier.weight(1f).fillMaxWidth().padding(4.dp)) {
-            chatHistory.forEach { message ->
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            state = listState
+        ) {
+            items(chatHistory) { message ->
                 Text(message)
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
+
+        // Auto-scroll to the latest message
+        LaunchedEffect(chatHistory.size) {
+            if (chatHistory.isNotEmpty()) {
+                listState.animateScrollToItem(chatHistory.size)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
