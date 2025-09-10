@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -25,30 +27,18 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.farmer.helper.data.AppDatabase
 import com.farmer.helper.data.User
 import com.farmer.helper.data.UserDao
+import com.farmer.helper.network.GeminiHelper
 import com.farmer.helper.network.RetrofitClient
 import com.farmer.helper.network.WeatherApiService
 import com.farmer.helper.network.WeatherResponse
-import com.farmer.helper.network.GeminiHelper
+import com.farmer.helper.ui.theme.FarmerHelperTheme
 import dev.jeziellago.compose.markdowntext.MarkdownText
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-//import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import androidx.compose.foundation.shape.RoundedCornerShape
-
-
-import kotlinx.coroutines.launch
 import java.util.*
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
@@ -64,23 +54,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         userDao = db.userDao()
 
         setContent {
-            val navController = rememberNavController()
-            NavHost(navController = navController, startDestination = "login") {
-                composable("login") {
-                    LoginScreen(
-                        userDao = userDao,
-                        onSignupClick = { navController.navigate("signup") },
-                        onLoginSuccess = { navController.navigate("home") }
-                    )
-                }
-                composable("signup") {
-                    SignupScreen(
-                        userDao = userDao,
-                        onSignupComplete = { navController.navigate("home") }
-                    )
-                }
-                composable("home") {
-                    HomeScreen(tts = tts)
+            FarmerHelperTheme {
+                val navController = rememberNavController()
+                NavHost(navController = navController, startDestination = "login") {
+                    composable("login") {
+                        LoginScreen(
+                            userDao = userDao,
+                            onSignupClick = { navController.navigate("signup") },
+                            onLoginSuccess = { navController.navigate("home") }
+                        )
+                    }
+                    composable("signup") {
+                        SignupScreen(
+                            userDao = userDao,
+                            onSignupComplete = { navController.navigate("home") }
+                        )
+                    }
+                    composable("home") {
+                        tts?.let { HomeScreen(tts = it) }
+                    }
                 }
             }
         }
@@ -107,7 +99,9 @@ fun LoginScreen(userDao: UserDao, onSignupClick: () -> Unit, onLoginSuccess: () 
     val scope = rememberCoroutineScope()
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
         Text("KrishiBandhu Login", style = MaterialTheme.typography.headlineSmall)
@@ -172,7 +166,9 @@ fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
         Text("KrishiBandhu Signup", style = MaterialTheme.typography.headlineSmall)
@@ -240,6 +236,7 @@ fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
         }
     }
 }
+
 
 @Composable
 fun HomeScreen(tts: TextToSpeech?) {
@@ -472,10 +469,10 @@ fun SchemesScreen() {
 @Composable
 fun ChatScreen(tts: TextToSpeech?) {
     var userMessage by remember { mutableStateOf("") }
-    val chatHistory = remember { mutableStateListOf<Pair<String, Boolean>>() }
-    // Pair(message, isUser)
+    val chatHistory = remember { mutableStateListOf<Pair<String, Boolean>>() } // Pair(message, isUser)
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    var lastAiResponse by remember { mutableStateOf<String?>(null) }
 
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -487,7 +484,8 @@ fun ChatScreen(tts: TextToSpeech?) {
                 coroutineScope.launch {
                     val response = GeminiHelper.getResponse(spokenText)
                     chatHistory.add("AI: $response" to false)
-                    tts?.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
+                    lastAiResponse = response
+                    // ❌ no auto-speak
                 }
             }
         }
@@ -501,7 +499,8 @@ fun ChatScreen(tts: TextToSpeech?) {
             coroutineScope.launch {
                 val response = GeminiHelper.getResponse(messageToSend)
                 chatHistory.add("AI: $response" to false)
-                tts?.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
+                lastAiResponse = response
+                // ❌ no auto-speak
             }
         }
     }
@@ -544,6 +543,7 @@ fun ChatScreen(tts: TextToSpeech?) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // 🎤 Speech input button
         Button(
             onClick = {
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -555,6 +555,27 @@ fun ChatScreen(tts: TextToSpeech?) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("🎤 Speak")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 🔊 TTS Controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Button(
+                onClick = {
+                    lastAiResponse?.let {
+                        tts?.speak(it, TextToSpeech.QUEUE_FLUSH, null, null)
+                    }
+                }
+            ) {
+                Text("▶ Speak")
+            }
+            Button(onClick = { tts?.stop() }) {
+                Text("⏸ Stop")
+            }
         }
     }
 }
