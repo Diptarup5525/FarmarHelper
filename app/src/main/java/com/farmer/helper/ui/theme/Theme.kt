@@ -27,7 +27,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun FarmerHelperTheme(   // 🔄 updated to new app name
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

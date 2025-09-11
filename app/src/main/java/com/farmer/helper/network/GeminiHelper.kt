@@ -1,5 +1,8 @@
 package com.farmer.helper.network
 
+import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -9,6 +12,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
 object GeminiHelper {
@@ -24,6 +28,7 @@ object GeminiHelper {
             .build()
     }
 
+    // Existing text-only query
     suspend fun getResponse(userMessage: String): String {
         return withContext(Dispatchers.IO) {
             try {
@@ -71,6 +76,71 @@ object GeminiHelper {
                 return@withContext "No response from Gemini."
             } catch (e: Exception) {
                 Log.e("GeminiHelper", "⚠️ Exception in getResponse", e)
+                return@withContext "Error: ${e.message}"
+            }
+        }
+    }
+
+    // ✅ New function: send text + image
+    suspend fun sendQueryWithImage(context: Context, userMessage: String, imageUri: Uri?): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                val partsArray = JSONArray()
+                // Add text part
+                partsArray.put(JSONObject().put("text", userMessage))
+
+                // Add image part if provided
+                imageUri?.let { uri ->
+                    val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+                    val bytes = inputStream?.readBytes()
+                    val base64Image = bytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+                    if (base64Image != null) {
+                        partsArray.put(JSONObject().put("image", base64Image))
+                    }
+                }
+
+                val requestJson = JSONObject()
+                    .put("contents", JSONArray().put(
+                        JSONObject()
+                            .put("role", "user")
+                            .put("parts", partsArray)
+                    ))
+
+                val requestBody = requestJson.toString()
+                    .toRequestBody("application/json".toMediaType())
+
+                val url = "${BASE_URL}${MODEL}:generateContent?key=$API_KEY"
+
+                val request = Request.Builder()
+                    .url(url)
+                    .post(requestBody)
+                    .addHeader("Content-Type", "application/json")
+                    .build()
+
+                Log.d("GeminiHelper", "➡️ Request JSON (image query): $requestJson")
+
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
+
+                if (!response.isSuccessful || responseBody.isNullOrEmpty()) {
+                    Log.e("GeminiHelper", "❌ API call failed: ${response.code} - ${response.message}")
+                    return@withContext "Error ${response.code}: ${response.message}"
+                }
+
+                val jsonResponse = JSONObject(responseBody)
+                val candidates = jsonResponse.optJSONArray("candidates")
+                if (candidates != null && candidates.length() > 0) {
+                    val firstCandidate = candidates.getJSONObject(0)
+                    val content = firstCandidate.optJSONObject("content")
+                    val parts = content?.optJSONArray("parts")
+                    if (parts != null && parts.length() > 0) {
+                        return@withContext parts.getJSONObject(0).optString("text", "")
+                    }
+                }
+
+                return@withContext "No response from Gemini."
+            } catch (e: Exception) {
+                Log.e("GeminiHelper", "⚠️ Exception in sendQueryWithImage", e)
                 return@withContext "Error: ${e.message}"
             }
         }
