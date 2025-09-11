@@ -37,6 +37,14 @@ import com.farmer.helper.network.WeatherApiService
 import com.farmer.helper.network.WeatherResponse
 import com.farmer.helper.ui.theme.FarmerHelperTheme
 import dev.jeziellago.compose.markdowntext.MarkdownText
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.runtime.*
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -423,14 +431,70 @@ fun WeatherScreen() {
 
 
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MarketPricesScreen() {
-    Column(modifier = Modifier.padding(16.dp)) {
+    val crops = listOf(
+        "Rice" to "₹50/kg",
+        "Wheat" to "₹40/kg",
+        "Corn" to "₹30/kg",
+        "Sugarcane" to "₹35/kg",
+        "Cotton" to "₹60/kg",
+        "Potato" to "₹25/kg",
+        "Onion" to "₹30/kg",
+        "Tomato" to "₹28/kg",
+        "Chili" to "₹120/kg",
+        "Cabbage" to "₹20/kg",
+        "Carrot" to "₹30/kg",
+        "Maize" to "₹32/kg"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         Text("Market Prices", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Rice: ₹50/kg\nWheat: ₹40/kg\nCorn: ₹30/kg")
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(crops) { crop ->
+                val (name, price) = crop
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = price,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
     }
 }
+
+
 
 @Composable
 fun SchemesScreen() {
