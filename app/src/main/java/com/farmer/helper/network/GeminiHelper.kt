@@ -82,10 +82,12 @@ object GeminiHelper {
     }
 
     // ✅ New function: send text + image
+    // ✅ Fixed: send text + image
     suspend fun sendQueryWithImage(context: Context, userMessage: String, imageUri: Uri?): String {
         return withContext(Dispatchers.IO) {
             try {
                 val partsArray = JSONArray()
+
                 // Add text part
                 partsArray.put(JSONObject().put("text", userMessage))
 
@@ -94,8 +96,16 @@ object GeminiHelper {
                     val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
                     val bytes = inputStream?.readBytes()
                     val base64Image = bytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+
                     if (base64Image != null) {
-                        partsArray.put(JSONObject().put("image", base64Image))
+                        val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                        val imagePart = JSONObject().apply {
+                            put("inline_data", JSONObject()
+                                .put("mime_type", mimeType)
+                                .put("data", base64Image)
+                            )
+                        }
+                        partsArray.put(imagePart)
                     }
                 }
 
@@ -145,4 +155,5 @@ object GeminiHelper {
             }
         }
     }
+
 }

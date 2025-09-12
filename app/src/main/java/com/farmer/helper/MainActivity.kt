@@ -568,6 +568,7 @@ fun SchemesScreen() {
 fun ChatScreen(tts: TextToSpeech?) {
     val context = LocalContext.current
     var userMessage by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) } // ✅ store selected image
     val chatHistory = remember { mutableStateListOf<Pair<String, Boolean>>() } // Pair(message, isUser)
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -597,6 +598,7 @@ fun ChatScreen(tts: TextToSpeech?) {
             lastAiResponse = response
         }
     }
+
     // Speech-to-text launcher
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -613,12 +615,10 @@ fun ChatScreen(tts: TextToSpeech?) {
     val imageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri != null && userMessage.isNotBlank()) {
-            sendImageQuery(context, userMessage, uri)
+        if (uri != null) {
+            selectedImageUri = uri // ✅ store image for preview
         }
     }
-
-
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("KrishiBandhu AI Chat", style = MaterialTheme.typography.headlineSmall)
@@ -644,6 +644,17 @@ fun ChatScreen(tts: TextToSpeech?) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // ✅ Preview selected image
+        selectedImageUri?.let { uri ->
+            AsyncImage(
+                model = uri,
+                contentDescription = "Selected image",
+                modifier = Modifier
+                    .size(100.dp)
+                    .padding(8.dp)
+            )
+        }
+
         // Text input + send button
         Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
@@ -657,7 +668,14 @@ fun ChatScreen(tts: TextToSpeech?) {
                 )
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = { sendMessage(userMessage) }) {
+            Button(onClick = {
+                if (selectedImageUri != null) {
+                    sendImageQuery(context, userMessage.ifBlank { " " }, selectedImageUri!!)
+                    selectedImageUri = null // ✅ clear after sending
+                } else {
+                    sendMessage(userMessage)
+                }
+            }) {
                 Text("Send")
             }
         }
@@ -669,7 +687,7 @@ fun ChatScreen(tts: TextToSpeech?) {
             onClick = { imageLauncher.launch("image/*") },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("📷 Send Image + Question")
+            Text("📷 Select Image")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -703,6 +721,7 @@ fun ChatScreen(tts: TextToSpeech?) {
         }
     }
 }
+
 
 @Composable
 fun ChatBubble(message: String, isUser: Boolean) {
