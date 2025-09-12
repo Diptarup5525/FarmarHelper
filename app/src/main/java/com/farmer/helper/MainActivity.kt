@@ -768,6 +768,3 @@ fun ChatBubble(chatMessage: ChatMessage) {
         }
     }
 }
-
-
-
