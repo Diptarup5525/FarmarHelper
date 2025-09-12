@@ -564,37 +564,40 @@ fun SchemesScreen() {
 }
 
 
+// ✅ Data class for chat messages
+data class ChatMessage(val text: String?, val imageUri: Uri?, val isUser: Boolean)
+
 @Composable
 fun ChatScreen(tts: TextToSpeech?) {
     val context = LocalContext.current
     var userMessage by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) } // ✅ store selected image
-    val chatHistory = remember { mutableStateListOf<Pair<String, Boolean>>() } // Pair(message, isUser)
+    val chatHistory = remember { mutableStateListOf<ChatMessage>() }
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     var lastAiResponse by remember { mutableStateOf<String?>(null) }
 
     // Function to send text messages
-    fun sendMessage(message: String, isVoice: Boolean = false) {
+    fun sendMessage(message: String) {
         if (message.isNotBlank()) {
             val trimmedMessage = message.trim()
-            chatHistory.add("You: $trimmedMessage" to true)
+            chatHistory.add(ChatMessage(text = trimmedMessage, imageUri = null, isUser = true))
             userMessage = ""
             coroutineScope.launch {
                 val response = GeminiHelper.getResponse(trimmedMessage)
-                chatHistory.add("AI: $response" to false)
+                chatHistory.add(ChatMessage(text = response, imageUri = null, isUser = false))
                 lastAiResponse = response
             }
         }
     }
 
-    // Function to send image + text query
+    // Function to send image + optional text
     fun sendImageQuery(context: Context, message: String, imageUri: Uri) {
+        chatHistory.add(ChatMessage(text = message.ifBlank { null }, imageUri = imageUri, isUser = true))
+        userMessage = ""
         coroutineScope.launch {
-            chatHistory.add("You: $message" to true)
-            userMessage = ""
             val response = GeminiHelper.sendQueryWithImage(context, message, imageUri)
-            chatHistory.add("AI: $response" to false)
+            chatHistory.add(ChatMessage(text = response, imageUri = null, isUser = false))
             lastAiResponse = response
         }
     }
@@ -603,10 +606,10 @@ fun ChatScreen(tts: TextToSpeech?) {
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
+        if (result.resultCode == Activity.RESULT_OK) {
             val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spokenText.isNullOrBlank()) {
-                sendMessage(spokenText, isVoice = true)
+                sendMessage(spokenText)
             }
         }
     }
@@ -629,8 +632,8 @@ fun ChatScreen(tts: TextToSpeech?) {
             modifier = Modifier.weight(1f).fillMaxWidth(),
             state = listState
         ) {
-            items(chatHistory) { (message, isUser) ->
-                ChatBubble(message = message, isUser = isUser)
+            items(chatHistory) { chat ->
+                ChatBubble(chatMessage = chat)
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
@@ -644,13 +647,13 @@ fun ChatScreen(tts: TextToSpeech?) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ✅ Preview selected image
+        // ✅ Preview selected image before sending
         selectedImageUri?.let { uri ->
             AsyncImage(
                 model = uri,
                 contentDescription = "Selected image",
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(120.dp)
                     .padding(8.dp)
             )
         }
@@ -670,7 +673,7 @@ fun ChatScreen(tts: TextToSpeech?) {
             Spacer(modifier = Modifier.width(8.dp))
             Button(onClick = {
                 if (selectedImageUri != null) {
-                    sendImageQuery(context, userMessage.ifBlank { " " }, selectedImageUri!!)
+                    sendImageQuery(context, userMessage, selectedImageUri!!)
                     selectedImageUri = null // ✅ clear after sending
                 } else {
                     sendMessage(userMessage)
@@ -682,7 +685,7 @@ fun ChatScreen(tts: TextToSpeech?) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Image + question button
+        // Image select button
         Button(
             onClick = { imageLauncher.launch("image/*") },
             modifier = Modifier.fillMaxWidth()
@@ -722,33 +725,49 @@ fun ChatScreen(tts: TextToSpeech?) {
     }
 }
 
-
 @Composable
-fun ChatBubble(message: String, isUser: Boolean) {
+fun ChatBubble(chatMessage: ChatMessage) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (chatMessage.isUser) Arrangement.End else Arrangement.Start
     ) {
         Surface(
-            color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+            color = if (chatMessage.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
             shape = MaterialTheme.shapes.medium,
             tonalElevation = 4.dp,
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
-            if (isUser) {
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.padding(12.dp)
-                )
-            } else {
-                MarkdownText(
-                    markdown = message,
-                    modifier = Modifier.padding(12.dp)
-                )
+            Column(modifier = Modifier.padding(12.dp)) {
+                // ✅ Show text if available
+                chatMessage.text?.let { text ->
+                    if (chatMessage.isUser) {
+                        Text(
+                            text = text,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        MarkdownText(
+                            markdown = text,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+
+                // ✅ Show image if available
+                chatMessage.imageUri?.let { uri ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = "Chat image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                    )
+                }
             }
         }
     }
 }
+
 
 
