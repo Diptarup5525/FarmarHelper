@@ -1,6 +1,7 @@
 package com.farmer.helper
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -122,8 +123,8 @@ fun LoginScreen(userDao: UserDao, onSignupClick: () -> Unit, onLoginSuccess: () 
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                focusedTextColor = MaterialTheme.colorScheme.primary,
+                unfocusedTextColor = MaterialTheme.colorScheme.primary
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -135,8 +136,8 @@ fun LoginScreen(userDao: UserDao, onSignupClick: () -> Unit, onLoginSuccess: () 
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                focusedTextColor = MaterialTheme.colorScheme.primary,
+                unfocusedTextColor = MaterialTheme.colorScheme.primary
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -196,8 +197,8 @@ fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
             label = { Text("Full Name") },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                focusedTextColor = MaterialTheme.colorScheme.primary,
+                unfocusedTextColor = MaterialTheme.colorScheme.primary
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -209,8 +210,8 @@ fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                focusedTextColor = MaterialTheme.colorScheme.primary,
+                unfocusedTextColor = MaterialTheme.colorScheme.primary
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -221,8 +222,8 @@ fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
             label = { Text("Address") },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                focusedTextColor = MaterialTheme.colorScheme.primary,
+                unfocusedTextColor = MaterialTheme.colorScheme.primary
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -234,8 +235,8 @@ fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                focusedTextColor = MaterialTheme.colorScheme.primary,
+                unfocusedTextColor = MaterialTheme.colorScheme.primary
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -247,8 +248,8 @@ fun SignupScreen(userDao: UserDao, onSignupComplete: () -> Unit) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                focusedTextColor = MaterialTheme.colorScheme.primary,
+                unfocusedTextColor = MaterialTheme.colorScheme.primary
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -428,9 +429,6 @@ fun WeatherScreen() {
     }
 }
 
-
-
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MarketPricesScreen() {
@@ -575,7 +573,7 @@ fun ChatScreen(tts: TextToSpeech?) {
     val listState = rememberLazyListState()
     var lastAiResponse by remember { mutableStateOf<String?>(null) }
 
-    // Function to send text message
+    // Function to send text messages
     fun sendMessage(message: String, isVoice: Boolean = false) {
         if (message.isNotBlank()) {
             val trimmedMessage = message.trim()
@@ -589,11 +587,21 @@ fun ChatScreen(tts: TextToSpeech?) {
         }
     }
 
+    // Function to send image + text query
+    fun sendImageQuery(context: Context, message: String, imageUri: Uri) {
+        coroutineScope.launch {
+            chatHistory.add("You: $message" to true)
+            userMessage = ""
+            val response = GeminiHelper.sendQueryWithImage(context, message, imageUri)
+            chatHistory.add("AI: $response" to false)
+            lastAiResponse = response
+        }
+    }
     // Speech-to-text launcher
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
             val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spokenText.isNullOrBlank()) {
                 sendMessage(spokenText, isVoice = true)
@@ -604,17 +612,13 @@ fun ChatScreen(tts: TextToSpeech?) {
     // Image picker launcher
     val imageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri ->
+    ) { uri: Uri? ->
         if (uri != null && userMessage.isNotBlank()) {
-            coroutineScope.launch {
-                chatHistory.add("You: $userMessage" to true)
-                val response = GeminiHelper.sendQueryWithImage(context, userMessage, uri)
-                chatHistory.add("AI: $response" to false)
-                lastAiResponse = response
-                userMessage = ""
-            }
+            sendImageQuery(context, userMessage, uri)
         }
     }
+
+
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("KrishiBandhu AI Chat", style = MaterialTheme.typography.headlineSmall)
@@ -640,7 +644,7 @@ fun ChatScreen(tts: TextToSpeech?) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Text input + send
+        // Text input + send button
         Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = userMessage,
@@ -648,8 +652,8 @@ fun ChatScreen(tts: TextToSpeech?) {
                 placeholder = { Text("Ask about crops, weather, etc.") },
                 modifier = Modifier.weight(1f),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    focusedTextColor = MaterialTheme.colorScheme.primary,
+                    unfocusedTextColor = MaterialTheme.colorScheme.primary
                 )
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -670,7 +674,7 @@ fun ChatScreen(tts: TextToSpeech?) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Speech input
+        // Speech input button
         Button(
             onClick = {
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -692,9 +696,7 @@ fun ChatScreen(tts: TextToSpeech?) {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Button(
-                onClick = {
-                    lastAiResponse?.let { tts?.speak(it, TextToSpeech.QUEUE_FLUSH, null, null) }
-                }
+                onClick = { lastAiResponse?.let { tts?.speak(it, TextToSpeech.QUEUE_FLUSH, null, null) } }
             ) { Text("▶ Speak") }
 
             Button(onClick = { tts?.stop() }) { Text("⏸ Stop") }
